@@ -31,7 +31,8 @@ import gradio as gr
 
 # 可不可以参考之前的各种api_key的输入呢？
 
-# To fix this, please make sure that the key argument is unique for each widget you create.
+#To fix this, please make sure that the key argument is unique for each widget you create.
+
 
 
 # ————————————————————————————————————————————————————————————————————————————————————————————————————————————————————#
@@ -67,7 +68,6 @@ session_state = {
     "zhipu_api_key": ""
 }
 
-
 def set_api_keys(langchain_key, tavily_key, openai_key, zhipu_key):
     """
     设置api_key。
@@ -88,7 +88,6 @@ def set_api_keys(langchain_key, tavily_key, openai_key, zhipu_key):
     # Add any necessary initialization for TavilySearchResults here
 
     return f"LANGCHAIN_API_KEY 设置为: {langchain_key}", f"TAVILY_API_KEY 设置为: {tavily_key}", f"OpenAI API Key 设置为: {openai_key}", f"智谱AI API Key 设置为: {zhipu_key}"
-
 
 def initialize_vector_store():
     """
@@ -117,8 +116,7 @@ def initialize_vector_store():
     current_time = pd.to_datetime("now").tz_localize(example_time.tz)
     time_diff = current_time - example_time
 
-    tdf["bookings"]["book_date"] = pd.to_datetime(tdf["bookings"]["book_date"].replace("\\N", pd.NaT),
-                                                  utc=True) + time_diff
+    tdf["bookings"]["book_date"] = pd.to_datetime(tdf["bookings"]["book_date"].replace("\\N", pd.NaT), utc=True) + time_diff
 
     datetime_columns = ["scheduled_departure", "scheduled_arrival", "actual_departure", "actual_arrival"]
     for column in datetime_columns:
@@ -161,16 +159,13 @@ def initialize_vector_store():
 
     return "向量库构建完成", gr.update(visible=True)
 
-
 @tool
-def lookup_policy(query: str) -> str:
+def lookup_policy(query:str) -> str:
     """Consult the company policies to check whether certain options are permitted.
       Use this before making any flight changes performing other 'write' events."""
 
     docs = retriever.query(query, k=2)
     return "\n\n".join([doc["page_content"] for doc in docs])
-
-
 # ——————————————————flight——————————————————————————————————
 from typing import Optional
 from langchain_core.runnables import ensure_config
@@ -837,7 +832,8 @@ tutorial_questions = [
     "OK great pick one and book it for my second day there.",
 ]
 
-# ————————————————————————Part2————————————-
+
+#————————————————————————Part2————————————-
 from typing import Annotated
 
 from langchain_anthropic import ChatAnthropic
@@ -866,9 +862,9 @@ class Assistant:
             # If the LLM happens to return an empty response, we will re-prompt it
             # for an actual response.
             if not result.tool_calls and (
-                    not result.content
-                    or isinstance(result.content, list)
-                    and not result.content[0].get("text")
+                not result.content
+                or isinstance(result.content, list)
+                and not result.content[0].get("text")
             ):
                 messages = state["messages"] + [("user", "Respond with a real output.")]
                 state = {**state, "messages": messages}
@@ -876,15 +872,11 @@ class Assistant:
                 break
         return {"messages": result}
 
-
 def fetch_user_info(state: State):
     """
     获取用户信息的函数。
     """
     return {"user_info": fetch_user_flight_information.invoke({})}
-
-
-# 修改后的 display_messages 函数，保持不变
 def display_messages(event, _printed, chat):
     for s in event['messages']:
         if s.id not in _printed:
@@ -894,8 +886,7 @@ def display_messages(event, _printed, chat):
                 if not s.content and 'tool_calls' in s.additional_kwargs:
                     try:
                         tool_calls = s.additional_kwargs['tool_calls']
-                        tool_names = [tool_call['function']['name'] for tool_call in tool_calls if
-                                      'function' in tool_call and 'name' in tool_call['function']]
+                        tool_names = [tool_call['function']['name'] for tool_call in tool_calls if 'function' in tool_call and 'name' in tool_call['function']]
                         chat.append(("ai", f"I will use the following tools: {', '.join(tool_names)}"))
                     except Exception as e:
                         chat.append(("error", f"Error processing AIMessage tool calls: {str(e)}"))
@@ -913,20 +904,10 @@ def display_messages(event, _printed, chat):
             _printed.add(s.id)
             yield chat
 
-
-global_part_2_graph = None
-global_snapshot = None
-global_config = None
-global_chat = []
-
 def run_chat(model_name, api_key, api_base, tutorial_questions, user_input_handler):
-    global global_part_2_graph
-    global global_config
-
     llm = ChatOpenAI(model=model_name, api_key=api_key, base_url=api_base)
     assistant_prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         "You are a helpful customer support assistant for Swiss Airlines. Use the provided tools to search for flights, company policies, and other information to assist the user's queries. When searching, be persistent. Expand your query bounds if the first search returns no results. If a search comes up empty, expand your search before giving up.\n\nCurrent user:\n\n{user_info}\n\nCurrent time: {time}."),
+        ("system", "You are a helpful customer support assistant for Swiss Airlines. Use the provided tools to search for flights, company policies, and other information to assist the user's queries. When searching, be persistent. Expand your query bounds if the first search returns no results. If a search comes up empty, expand your search before giving up.\n\nCurrent user:\n\n{user_info}\n\nCurrent time: {time}."),
         ("placeholder", "{messages}"),
     ]).partial(time=datetime.now())
 
@@ -962,50 +943,41 @@ def run_chat(model_name, api_key, api_base, tutorial_questions, user_input_handl
     builder.add_edge("tools", "assistant")
 
     memory = SqliteSaver.from_conn_string(":memory:")
-    global_part_2_graph = builder.compile(checkpointer=memory, interrupt_before=["tools"])
+    part_2_graph = builder.compile(checkpointer=memory, interrupt_before=["tools"])
 
-    global_config = {
+    config = {
         "configurable": {
             "passenger_id": "3442 587242",
             "thread_id": f"{uuid.uuid4()}",
-            "thread_ts": datetime.now().isoformat()
         }
     }
     _printed = set()
-
+    chat = []
     try:
         for question in tutorial_questions:
-            events = global_part_2_graph.stream({"messages": ("user", question)}, global_config, stream_mode="values")
+            events = part_2_graph.stream({"messages": ("user", question)}, config, stream_mode="values")
             for event in events:
-                print("——————————")
-                print(f"Event:{event}")
-                for chat_update in display_messages(event, _printed, global_chat):
+                for chat_update in display_messages(event, _printed, chat):
                     yield chat_update
-            global_snapshot = global_part_2_graph.get_state(global_config)
-            while global_snapshot.next:
-                global_chat.append(("ai",
-                             "Do you approve of the above actions? Type 'y' to continue; otherwise, explain your requested change.\n\n"))
-                yield global_chat
+            snapshot = part_2_graph.get_state(config)
+            while snapshot.next:
+                chat.append(("ai", "Do you approve of the above actions? Type 'y' to continue; otherwise, explain your requested change.\n\n"))
+                yield chat
 
                 user_input = yield "input"
-                handle_user_input(user_input)
+                chat.append(("human", user_input))
+                yield chat
 
+                if user_input.strip() == "y":
+                    result = part_2_graph.invoke(None, config)
+                else:
+                    result = part_2_graph.invoke(
+                        {"messages": [ToolMessage(tool_call_id=event["messages"][-1].tool_calls[0]["id"], content=f"API call denied by user. Reasoning: '{user_input}'. Continue assisting, accounting for the user's input.")]}
+                    , config)
+                snapshot = part_2_graph.get_state(config)
     except Exception as e:
-        global_chat.append(("error", f"运行出错：{str(e)}"))
-        yield global_chat
-
-def handle_user_input(user_input):
-    global global_snapshot
-    global global_chat
-
-    if user_input.strip() == "y":
-        result = global_part_2_graph.invoke(None, global_config)
-    else:
-        result = global_part_2_graph.invoke(
-            {"messages": [ToolMessage(tool_call_id=global_snapshot["messages"][-1].tool_calls[0]["id"],
-                                      content=f"API call denied by user. Reasoning: '{user_input}'. Continue assisting, accounting for the user's input.")]}
-            , global_config)
-    global_snapshot = global_part_2_graph.get_state(global_config)
+        chat.append(("error", f"运行出错：{str(e)}"))
+        yield chat
 
 def main_interface():
     with gr.Blocks() as demo:
@@ -1021,8 +993,7 @@ def main_interface():
                 openai_api_base = gr.Textbox(label="OpenAI API Base", value="https://api.gpts.vin/v1")
                 gr.Markdown("[获取OpenAI API key](https://platform.openai.com/account/api-keys)")
                 gr.Markdown("[OpenAI API文档](https://platform.openai.com/docs/api-reference/introduction)")
-                gr.Markdown(
-                    "要用直连原版的API话，要开VPN，端口设置为7890。用中转的不用开VPN，已测试过中转的跟直连的效果一样。")
+                gr.Markdown("要用直连原版的API话，要开VPN，端口设置为7890。用中转的不用开VPN，已测试过中转的跟直连的效果一样。")
 
             with gr.Tab("智谱"):
                 zhipu_api_key = gr.Textbox(label="智谱AI的API Key", type="password")
@@ -1062,15 +1033,15 @@ def main_interface():
                 yield chat
 
         def user_input_handler(user_input):
-            # 将用户输入转换成 ('human', user_input) 格式的元组
-            return [("human", user_input)]
+            return user_input
 
-        start_button.click(on_start, inputs=[openai_api_key, zhipu_api_key, openai_api_base, zhipu_api_base, model_name,
-                                             user_input_box], outputs=chat_output)
+        start_button.click(on_start, inputs=[openai_api_key, zhipu_api_key, openai_api_base, zhipu_api_base, model_name, user_input_box], outputs=chat_output)
 
-        user_input_box.submit(handle_user_input, inputs=[user_input_box], outputs=chat_output)
+        user_input_box.submit(lambda user_input: user_input_handler(user_input), inputs=[user_input_box], outputs=chat_output)
+
 
     return demo
+
 
 if __name__ == "__main__":
     demo = main_interface()
@@ -1082,9 +1053,45 @@ if __name__ == "__main__":
 # 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
 
 # llm = ChatOpenAI(model="gpt-4o",
-# sk-usqU5KXzBCpOP2T881D9A21838Fe47Ed8f64Ce753e192aE3
+# api_key="sk-usqU5KXzBCpOP2T881D9A21838Fe47Ed8f64Ce753e192aE3",
 # base_url="https://api.gpts.vin/v1")
-# #
+
+#运行到最后错误的时候，才会在chatbox中展示
+#user_input的textbox似乎会出错，到时候验证一下？
+
+
+
+#编号1的代码：
+#
+# def display_messages(event, _printed, chat):
+#     for s in event['messages']:
+#         if s.id not in _printed:
+#             if isinstance(s, HumanMessage):
+#                 chat.append(("human", s.content))
+#             elif isinstance(s, AIMessage):
+#                 if not s.content and 'tool_calls' in s.additional_kwargs:
+#                     try:
+#                         tool_calls = s.additional_kwargs['tool_calls']
+#                         tool_names = [tool_call['function']['name'] for tool_call in tool_calls if 'function' in tool_call and 'name' in tool_call['function']]
+#                         chat.append(("ai", f"I will use the following tools: {', '.join(tool_names)}"))
+#                     except Exception as e:
+#                         chat.append(("error", f"Error processing AIMessage tool calls: {str(e)}"))
+#                 else:
+#                     chat.append(("ai", s.content))
+#             elif isinstance(s, ToolMessage):
+#                 try:
+#                     if 'HTTPError' in s.content:
+#                         chat.append(("error", f"Tool调用失败：{s.content}，请检查你的API key是否正确"))
+#                     else:
+#                         tool_info = f"Tool: {s.name}, Content: {s.content}"
+#                         chat.append(("tool", tool_info))
+#                 except Exception as e:
+#                     chat.append(("error", f"处理 ToolMessage 时出错: {str(e)}"))
+#             _printed.add(s.id)
+#             yield chat
+# from langgraph.checkpoint.sqlite import SqliteSaver
+# from langgraph.graph import StateGraph
+# from langgraph.prebuilt import tools_condition
 #
 # def run_chat(model_name, api_key, api_base, tutorial_questions, user_input_handler):
 #     llm = ChatOpenAI(model=model_name, api_key=api_key, base_url=api_base)
@@ -1139,8 +1146,6 @@ if __name__ == "__main__":
 #         for question in tutorial_questions:
 #             events = part_2_graph.stream({"messages": ("user", question)}, config, stream_mode="values")
 #             for event in events:
-#                 print("——————————")
-#                 print(f"Event:{event}")
 #                 for chat_update in display_messages(event, _printed, chat):
 #                     yield chat_update
 #             snapshot = part_2_graph.get_state(config)
@@ -1149,11 +1154,8 @@ if __name__ == "__main__":
 #                 yield chat
 #
 #                 user_input = yield "input"
-#                 print(f"user_input:{user_input}1")
-#                 chat.append(("human", user_input))  # 确保追加新消息
-#                 print(f"user_input:{user_input}2")
+#                 chat.append(("human", user_input))
 #                 yield chat
-#                 print(f"user_input:{user_input}3")
 #
 #                 if user_input.strip() == "y":
 #                     result = part_2_graph.invoke(None, config)
@@ -1220,11 +1222,202 @@ if __name__ == "__main__":
 #                 yield chat
 #
 #         def user_input_handler(user_input):
-#             # 将用户输入转换成 ('human', user_input) 格式的元组
-#             return [("human", user_input)]
+#             return user_input
 #
 #         start_button.click(on_start, inputs=[openai_api_key, zhipu_api_key, openai_api_base, zhipu_api_base, model_name, user_input_box], outputs=chat_output)
 #
-#         user_input_box.submit(lambda user_input: user_input_handler(user_input), inputs=[user_input_box], outputs=chat_output)
+#     return demo
+#
+# if __name__ == "__main__":
+#     demo = main_interface()
+#     demo.launch(share=True)
+#
+#
+#
+# #编号2的代码：
+# def display_messages(event, _printed, chat):
+#     for s in event['messages']:
+#         if s.id not in _printed:
+#             if isinstance(s, HumanMessage):
+#                 chat.append(("human", s.content))
+#             elif isinstance(s, AIMessage):
+#                 if not s.content and 'tool_calls' in s.additional_kwargs:
+#                     try:
+#                         tool_calls = s.additional_kwargs['tool_calls']
+#                         tool_names = [tool_call['function']['name'] for tool_call in tool_calls if 'function' in tool_call and 'name' in tool_call['function']]
+#                         chat.append(("ai", f"I will use the following tools: {', '.join(tool_names)}"))
+#                     except Exception as e:
+#                         chat.append(("error", f"Error processing AIMessage tool calls: {str(e)}"))
+#                 else:
+#                     chat.append(("ai", s.content))
+#             elif isinstance(s, ToolMessage):
+#                 try:
+#                     if 'HTTPError' in s.content:
+#                         chat.append(("error", f"Tool调用失败：{s.content}，请检查你的API key是否正确"))
+#                     else:
+#                         tool_info = f"Tool: {s.name}, Content: {s.content}"
+#                         chat.append(("tool", tool_info))
+#                 except Exception as e:
+#                     chat.append(("error", f"处理 ToolMessage 时出错: {str(e)}"))
+#             _printed.add(s.id)
+#             yield chat
+#
+# def run_chat(model_name, api_key, api_base, tutorial_questions, user_input_handler):
+#     llm = ChatOpenAI(model=model_name, api_key=api_key, base_url=api_base)
+#     assistant_prompt = ChatPromptTemplate.from_messages([
+#         ("system", "You are a helpful customer support assistant for Swiss Airlines. Use the provided tools to search for flights, company policies, and other information to assist the user's queries. When searching, be persistent. Expand your query bounds if the first search returns no results. If a search comes up empty, expand your search before giving up.\n\nCurrent user:\n\n{user_info}\n\nCurrent time: {time}."),
+#         ("placeholder", "{messages}"),
+#     ]).partial(time=datetime.now())
+#
+#     part_2_tools = [
+#         TavilySearchResults(max_results=1),
+#         fetch_user_flight_information,
+#         search_flights,
+#         lookup_policy,
+#         update_ticket_to_new_flight,
+#         cancel_ticket,
+#         search_car_rentals,
+#         book_car_rental,
+#         update_car_rental,
+#         cancel_car_rental,
+#         search_hotels,
+#         book_hotel,
+#         update_hotel,
+#         cancel_hotel,
+#         search_trip_recommendations,
+#         book_excursion,
+#         update_excursion,
+#         cancel_excursion,
+#     ]
+#     part_2_assistant_runnable = assistant_prompt | llm.bind_tools(part_2_tools)
+#
+#     builder = StateGraph(State)
+#     builder.add_node("fetch_user_info", fetch_user_info)
+#     builder.add_edge(START, "fetch_user_info")
+#     builder.add_node("assistant", Assistant(part_2_assistant_runnable))
+#     builder.add_node("tools", create_tool_node_with_fallback(part_2_tools))
+#     builder.add_edge("fetch_user_info", "assistant")
+#     builder.add_conditional_edges("assistant", tools_condition)
+#     builder.add_edge("tools", "assistant")
+#
+#     memory = SqliteSaver.from_conn_string(":memory:")
+#     part_2_graph = builder.compile(checkpointer=memory, interrupt_before=["tools"])
+#
+#     config = {
+#         "configurable": {
+#             "passenger_id": "3442 587242",
+#             "thread_id": f"{uuid.uuid4()}",
+#         }
+#     }
+#     _printed = set()
+#     chat = []
+#     try:
+#         for question in tutorial_questions:
+#             events = part_2_graph.stream({"messages": ("user", question)}, config, stream_mode="values")
+#             for event in events:
+#                 print("——————————————————————————")
+#                 print(f"Event:{event}")
+#                 for chat_update in display_messages(event, _printed, chat):
+#                     yield chat_update
+#             snapshot = part_2_graph.get_state(config)
+#             while snapshot.next:
+#                 chat.append(("ai", "Do you approve of the above actions? Type 'y' to continue; otherwise, explain your requested change.\n\n"))
+#                 yield chat
+#
+#                 user_input = yield "input"
+#                 chat.append(("human", user_input))
+#                 yield chat
+#
+#                 if user_input.strip() == "y":
+#                     result = part_2_graph.invoke(None, config)
+#                 else:
+#                     result = part_2_graph.invoke(
+#                         {"messages": [ToolMessage(tool_call_id=event["messages"][-1].tool_calls[0]["id"], content=f"API call denied by user. Reasoning: '{user_input}'. Continue assisting, accounting for the user's input.")]}
+#                     , config)
+#                 snapshot = part_2_graph.get_state(config)
+#     except Exception as e:
+#         chat.append(("error", f"运行出错：{str(e)}"))
+#         yield chat
+#
+# def main_interface():
+#     with gr.Blocks() as demo:
+#         gr.Markdown("# Customer Chat bot (Including Flight, Car, Hotel, Etc.)")
+#
+#         with gr.Row():
+#             build_button = gr.Button("构建向量库")
+#             status_text = gr.Textbox(label="状态", interactive=False)
+#
+#         with gr.Column(visible=False) as api_keys_section:
+#             with gr.Tab("OpenAI"):
+#                 openai_api_key = gr.Textbox(label="OpenAI API Key", type="password")
+#                 openai_api_base = gr.Textbox(label="OpenAI API Base", value="https://api.gpts.vin/v1")
+#                 gr.Markdown("[获取OpenAI API key](https://platform.openai.com/account/api-keys)")
+#                 gr.Markdown("[OpenAI API文档](https://platform.openai.com/docs/api-reference/introduction)")
+#                 gr.Markdown("要用直连原版的API话，要开VPN，端口设置为7890。用中转的不用开VPN，已测试过中转的跟直连的效果一样。")
+#
+#             with gr.Tab("智谱"):
+#                 zhipu_api_key = gr.Textbox(label="智谱AI的API Key", type="password")
+#                 zhipu_api_base = gr.Textbox(label="智谱AI的API Base")
+#                 gr.Markdown("[获取智谱AI的API key](https://www.zhipuai.cn/)")
+#                 gr.Markdown("国产的LLM模型基本上无法完成任务，但是可能可以通过修改prompt完成任务")
+#
+#             with gr.Row():
+#                 langchain_api_key = gr.Textbox(label="Langchain API Key", type="password")
+#                 tavily_api_key = gr.Textbox(label="Tavily API Key", type="password")
+#
+#             gr.Button("设置 API 密钥").click(
+#                 set_api_keys,
+#                 inputs=[langchain_api_key, tavily_api_key, openai_api_key, zhipu_api_key],
+#                 outputs=[gr.Text(), gr.Text(), gr.Text(), gr.Text()]
+#             )
+#
+#         build_button.click(
+#             initialize_vector_store,
+#             inputs=[],
+#             outputs=[status_text, api_keys_section]
+#         )
+#
+#         model_name = gr.Textbox(label="输入你要使用的模型:", value="gpt-4o", placeholder="gpt-4o")
+#         start_button = gr.Button("开始")
+#         chat_output = gr.Chatbot(label="Chat")
+#         user_input_box = gr.Textbox(label="Your Input", visible=False)
+#         submit_button = gr.Button("提交", visible=False)
+#
+#         def on_start(openai_api_key, zhipu_api_key, openai_api_base, zhipu_api_base, model_name):
+#             api_key = openai_api_key if openai_api_key else zhipu_api_key
+#             api_base = openai_api_base if openai_api_base else zhipu_api_base
+#
+#             chat_generator = run_chat(model_name, api_key, api_base, tutorial_questions, user_input_handler)
+#             for chat in chat_generator:
+#                 if chat == "input":
+#                     user_input_box.visible = True
+#                     submit_button.visible = True
+#                     yield chat_output, user_input_box, submit_button
+#                 else:
+#                     yield chat_output, user_input_box, submit_button
+#
+#         def user_input_handler(user_input):
+#             return user_input
+#
+#         start_button.click(on_start, inputs=[openai_api_key, zhipu_api_key, openai_api_base, zhipu_api_base, model_name], outputs=[chat_output, user_input_box, submit_button])
+#
+#         def submit_user_input(user_input):
+#             return user_input
+#
+#         submit_button.click(submit_user_input, inputs=[user_input_box], outputs=chat_output)
+#         user_input_box.submit(submit_user_input, inputs=[user_input_box], outputs=chat_output)
 #
 #     return demo
+#
+# if __name__ == "__main__":
+#     demo = main_interface()
+#     demo.launch(share=True)
+
+
+# #请你参考编号1和编号2，编号1的代码可以正常运行并出现一个textbox，但是他的问题是：很好，你很好地完成了任务。但是目前还是有瑕疵，我向你说明一下目前遇到的问题和瑕疵。
+#
+# 1.Human的“Your Input”的文本框的出现比AI的询问要快。正常的流程的话，应该是AI的询问先出现，然后才是Human的文本框出现。
+# 2.Human的文本框，无法提交，我想应该可以设置一个“回车键”或者“提交按钮”进行提交。
+#
+# 编号2 的问题是：我使用print的时候发现有效果，但是实际上，chatbot却不会出现任何显示，我不确定这种方法能不能解决编号1的问题，这只是一种思路供你参考
+# 我希望你以编号1为基础，集中解决编号1的问题，尤其是：提交问题
